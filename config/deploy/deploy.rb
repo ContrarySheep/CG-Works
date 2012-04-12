@@ -17,7 +17,7 @@ set :deploy_via, :remote_cache
 set :use_sudo, false
 
 set :scm, "git"
-set :repository, "git@github.com:GriffithStudio/CG-Works.git"
+set :repository, "git@github.com:ContrarySheep/CG-Works.git"
 default_run_options[:pty] = true
 
 set :rvm_type, :user
