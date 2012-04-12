@@ -24,82 +24,43 @@ default_run_options[:pty] = true
 
 ssh_options[:forward_agent] = true
 
+
+after "deploy", "deploy:cleanup" # keep only the last 5 releases
+
 namespace :deploy do
-  
-  desc "Tell Passenger to restart."
-  task :restart, :roles => :web do
-    run "touch #{deploy_to}/current/tmp/restart.txt"
-  end
-
-  desc "Do nothing on startup so we don't get a script/spin error."
-  task :start do
-    puts "You may need to restart Apache."
-  end
-
-  desc "Symlink extra configs and folders."
-    task :symlink_extras do
-      run "ln -nfs #{shared_path}/config/database.yml #{release_path}/config/database.yml"
-      run "ln -nfs #{shared_path}/config/app_config.yml #{release_path}/config/app_config.yml"
-      run "ln -nfs #{shared_path}/cache #{release_path}/tmp/cache"
-      run "ln -nfs #{shared_path}/cache #{release_path}/tmp/sass-cache"
-      run "ln -nfs #{shared_path}/public/photos #{release_path}/public/photos"
+  %w[start stop restart].each do |command|
+    desc "#{command} unicorn server"
+    task command, roles: :app, except: {no_release: true} do
+      run "/etc/init.d/unicorn_#{application} #{command}"
     end
+  end
 
-  desc "Setup shared directory."
-  task :setup_shared do
-    run "mkdir -p #{shared_path}/config"
-    run "mkdir -p #{shared_path}/cache"
-    run "mkdir -p #{shared_path}/sass-cache"
-    run "mkdir -p #{shared_path}/public/photos"
-    run "touch #{shared_path}/config/database.yml"
-    run "touch #{shared_path}/config/app_config.yml"
-    puts "Now edit the config files and fill assets folder in #{shared_path}."
+  task :setup_config, roles: :app do
+    #sudo "ln -nfs #{current_path}/config/nginx.conf /etc/nginx/sites-enabled/#{application}"
+    #sudo "ln -nfs #{current_path}/config/unicorn_init.sh /etc/init.d/unicorn_#{application}"
+    #run "mkdir -p #{shared_path}/config"
+    #put File.read("config/database.example.yml"), "#{shared_path}/config/database.yml"
+    #puts "Now edit the config files in #{shared_path}."
   end
-  
-  desc "Run the bundle install command."
-  task :bundle_new_release, :roles => :app do
-    run "cd #{release_path} && bundle install"
+  #after "deploy:setup", "deploy:setup_config"
+
+  task :symlink_config, roles: :app do
+    run "ln -nfs #{shared_path}/config/database.yml #{release_path}/config/database.yml"
+    run "ln -nfs #{shared_path}/config/app_config.yml #{release_path}/config/app_config.yml"
+    run "ln -nfs #{shared_path}/cache #{release_path}/tmp/cache"
+    run "ln -nfs #{shared_path}/cache #{release_path}/tmp/sass-cache"
+    run "ln -nfs #{shared_path}/public/photos #{release_path}/public/photos"
   end
-  
-  desc "activate the post process migration."
-  task :with_migration do
-    puts "Migrations have been run."
-  end
-  
-  desc "activate the post process bundle install."
-  task :with_bundle do
-    puts "Bundler is set to run."
-  end
-  
-  desc "activate the post process bundle install and migration."
-  task :with_bundle_and_migration do
-    puts "Bundler is set to run. Migrations have been run."
-  end
-  
-  desc "Run the precompile rake task"
-  task :precompile_assets do
-    run "cd #{release_path} && bundle exec rake assets:precompile RAILS_ENV=#{rails_env}"
-    puts "Bundler is set to run. Migrations have been run."
-  end
-  
+  after "deploy:finalize_update", "deploy:symlink_config"
+
+  # desc "Make sure local git is in sync with remote."
+  # task :check_revision, roles: :web do
+  #   unless `git rev-parse HEAD` == `git rev-parse origin/master`
+  #     puts "WARNING: HEAD is not the same as origin/master"
+  #     puts "Run `git push` to sync changes."
+  #     exit
+  #   end
+  # end
+  # before "deploy", "deploy:check_revision"
 end
 
-desc "Quick test to confirm the deployment environments and return the server information."
-task :check_environment do
-  run "uname -a"
-end
-
-after "deploy", "deploy:cleanup" # keeps only last 5 releases
-after "deploy:setup", "deploy:setup_shared"
-after "deploy:update_code", "deploy:symlink_extras"
-
-before "deploy:with_migration", "deploy:migrations"
-before "deploy:with_bundle", "deploy"
-before "deploy:with_bundle_and_migration", "deploy:migrations"
-
-after "deploy:with_migration", "deploy:cleanup"
-after "deploy:with_bundle", "deploy:bundle_new_release"
-after "deploy:with_bundle_and_migration", "deploy:bundle_new_release"
-after "deploy:bundle_new_release", "deploy:restart"
-
-before "deploy:restart", "deploy:precompile_assets"
