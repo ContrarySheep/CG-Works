@@ -4,11 +4,11 @@ require 'yaml'
 
 CAP_PROFILE = YAML.load(File.read(File.expand_path('../profile.yml', __FILE__)))
 
-set :default_stage, "staging"
+set :default_stage, "production"
 set :stages, %w(production staging)
 
 require 'capistrano/ext/multistage'
-require "rvm/capistrano"
+#require "rvm/capistrano"
 require "bundler/capistrano"
 
 set :application, "CGWorks"
@@ -20,7 +20,7 @@ set :scm, "git"
 set :repository, "git@github.com:ContrarySheep/CG-Works.git"
 default_run_options[:pty] = true
 
-set :rvm_type, :user
+#set :rvm_type, :user
 
 ssh_options[:forward_agent] = true
 
